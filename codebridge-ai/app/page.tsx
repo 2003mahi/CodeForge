@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState, useEffect } from "react";
 import {
   ArrowRight,
   Play,
@@ -14,7 +13,7 @@ import {
   Trophy,
   ChevronRight,
 } from "lucide-react";
-import { features, mockProblems } from "@/lib/mockData";
+import { features } from "@/lib/mockData";
 
 const HeroScene = dynamic(() => import("@/components/landing/HeroScene"), {
   ssr: false,
@@ -39,24 +38,8 @@ const journey = [
 
 const companies = ["Google", "Microsoft", "Amazon", "Flipkart", "Swiggy", "Zomato", "CRED", "Razorpay", "Zerodha", "PhonePe"];
 
-function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    const step = value / 60;
-    const timer = setInterval(() => {
-      setCount((prev) => {
-        const next = prev + step;
-        if (next >= value) { clearInterval(timer); return value; }
-        return next;
-      });
-    }, 20);
-    return () => clearInterval(timer);
-  }, [value]);
-  return <>{Math.floor(count)}{suffix}</>;
-}
 
 export default function LandingPage() {
-  const [activeProblem, setActiveProblem] = useState(0);
 
   return (
     <div style={{ background: "#0A0A0F", minHeight: "100vh", overflowX: "hidden" }}>
