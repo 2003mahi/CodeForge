@@ -354,7 +354,8 @@ export const mockAnalyticsData = {
   ],
 };
 
-export const mockStreakData = (): Record<string, number> => {
+// Cached at module level — runs once on import, not on every render call
+const _cachedStreakData: Record<string, number> = (() => {
   const data: Record<string, number> = {};
   const today = new Date();
   for (let i = 180; i >= 0; i--) {
@@ -367,7 +368,10 @@ export const mockStreakData = (): Record<string, number> => {
     }
   }
   return data;
-};
+})();
+
+export const mockStreakData = (): Record<string, number> => _cachedStreakData;
+
 
 export const mockRoadmap = [
   {
