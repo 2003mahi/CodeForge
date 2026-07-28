@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,7 +17,7 @@ import {
   ChevronRight,
   Flame,
 } from "lucide-react";
-import { mockUser } from "@/lib/mockData";
+import { getUserState, UserState } from "@/lib/store";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
@@ -36,6 +37,26 @@ const quickActions = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [userState, setUserState] = useState<UserState | null>(null);
+
+  useEffect(() => {
+    setUserState(getUserState());
+
+    const handleStateChange = (e: Event) => {
+      const custom = e as CustomEvent<UserState>;
+      if (custom.detail) {
+        setUserState(custom.detail);
+      }
+    };
+
+    window.addEventListener("codebridge_state_change", handleStateChange);
+    return () => window.removeEventListener("codebridge_state_change", handleStateChange);
+  }, []);
+
+  const name = userState?.name || "Aryan Sharma";
+  const level = userState?.level || "Mid-Level Engineer";
+  const streak = userState?.streak || 14;
+  const xp = userState?.xp || 4280;
 
   return (
     <aside
@@ -109,18 +130,18 @@ export default function Sidebar() {
               flexShrink: 0,
             }}
           >
-            {mockUser.avatar}
+            AS
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {mockUser.name}
+              {name}
             </div>
-            <div style={{ fontSize: 11, color: "#94A3B8" }}>{mockUser.level}</div>
+            <div style={{ fontSize: 11, color: "#94A3B8" }}>{level}</div>
           </div>
         </div>
         <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
           <Flame size={13} color="#F59E0B" />
-          <span style={{ fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>{mockUser.streak} day streak</span>
+          <span style={{ fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>{streak} day streak</span>
         </div>
       </div>
 
@@ -166,13 +187,13 @@ export default function Sidebar() {
         style={{ padding: "12px 14px", borderRadius: 12, marginTop: 16 }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: 11, color: "#94A3B8" }}>Weekly XP</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#A855F7" }}>{mockUser.weeklyXP} / 1000</span>
+          <span style={{ fontSize: 11, color: "#94A3B8" }}>Total XP</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#A855F7" }}>{xp} XP</span>
         </div>
         <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
           <div
             style={{
-              width: `${(mockUser.weeklyXP / 1000) * 100}%`,
+              width: `${Math.min(100, (xp / 10000) * 100)}%`,
               height: "100%",
               background: "linear-gradient(90deg, #7C3AED, #3B82F6)",
               borderRadius: 3,
@@ -181,7 +202,7 @@ export default function Sidebar() {
           />
         </div>
         <div style={{ fontSize: 10, color: "#475569", marginTop: 4 }}>
-          {1000 - mockUser.weeklyXP} XP to next level
+          {Math.max(0, 10000 - xp)} XP to next tier
         </div>
       </div>
     </aside>
