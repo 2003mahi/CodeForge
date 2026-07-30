@@ -1,4 +1,3 @@
-"use client";
 import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import { ChevronRight, BookOpen, Layers } from 'lucide-react';
@@ -67,7 +66,7 @@ export default function Roadmaps() {
               {items.map((map) => (
                 <a
                   key={map.slug}
-                  href={`/roadmap/${map.slug}`}
+                  href={`/${map.slug}`}
                   className="glass border-gradient card-hover"
                   style={{
                     padding: 28,
