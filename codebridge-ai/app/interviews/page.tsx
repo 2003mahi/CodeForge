@@ -58,9 +58,9 @@ export default function MockInterviews() {
 
         {/* Finished / Review Panel */}
         {finished && selectedMock && (
-          <div className="glass border-animated" style={{ padding: 32, borderRadius: 24, marginBottom: 28, maxWidth: 800 }}>
+          <div className="border-animated" style={{ padding: 32, borderRadius: 24, marginBottom: 28, maxWidth: 800, background: "#0F0F16" }}>
             <h2 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 12 }}>Mock Interview Complete! 🎉</h2>
-            <p style={{ color: "#94A3B8", fontSize: 14, marginBottom: 24 }}>
+            <p style={{ color: "#E2E8F0", fontSize: 14, marginBottom: 24 }}>
               Congratulations on completing the **{selectedMock.company} {selectedMock.type} Round**. Our AI evaluator has generated preliminary performance feedback based on your responses.
             </p>
 
@@ -72,7 +72,7 @@ export default function MockInterviews() {
               ].map((m, i) => (
                 <div key={i} className="glass-dark" style={{ padding: "16px 20px", borderRadius: 14, textAlign: "center" }}>
                   <div style={{ fontSize: 24, fontWeight: 900, color: m.color }}>{m.value}</div>
-                  <div style={{ fontSize: 11, color: "#64748B", marginTop: 4 }}>{m.label}</div>
+                  <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 4 }}>{m.label}</div>
                 </div>
               ))}
             </div>
@@ -80,13 +80,13 @@ export default function MockInterviews() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
               <div style={{ padding: "14px 16px", background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12 }}>
                 <div style={{ fontWeight: 700, color: "#6EE7B7", fontSize: 13, marginBottom: 4 }}>✓ STRENGTHS</div>
-                <p style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.5 }}>
+                <p style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.5 }}>
                   Strong use of the STAR framework in behavioral questions. Excellent pacing during the technical solution design step.
                 </p>
               </div>
               <div style={{ padding: "14px 16px", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12 }}>
                 <div style={{ fontWeight: 700, color: "#FCA5A5", fontSize: 13, marginBottom: 4 }}>⚠️ AREAS OF IMPROVEMENT</div>
-                <p style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.5 }}>
+                <p style={{ fontSize: 12, color: "#E2E8F0", lineHeight: 1.5 }}>
                   Make sure to explicitly analyze edge cases (like empty collections or invalid input constraints) before writing functional lines.
                 </p>
               </div>

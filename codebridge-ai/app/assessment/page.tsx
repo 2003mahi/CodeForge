@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
-import { Zap, Brain, Bug, Target, ChevronRight, CheckCircle2, Award, Clock, ArrowRight } from "lucide-react";
+import { Zap, Brain, Bug, Target, ChevronRight, CheckCircle2, Award, Clock, ArrowRight, RefreshCw } from "lucide-react";
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar } from "recharts";
 
 const steps = [
@@ -17,6 +18,44 @@ export default function Assessment() {
   const [activeStep, setActiveStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [selectedLang, setSelectedLang] = useState("python");
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
+
+  // Simple error boundary logic (catch render errors)
+  const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
+    if (hasError) {
+      return (
+        <div style={{ color: "#F87171", padding: "40px", textAlign: "center" }}>
+          <h2>Something went wrong.</h2>
+          <p>Please refresh the page or try again later.</p>
+        </div>
+      );
+    }
+    return <>{children}</>;
+  };
+
+  // Responsive handling for sidebar
+  useEffect(() => {
+    const handleResize = () => {
+      setShowSidebar(window.innerWidth >= 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handleBegin = () => {
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setActiveStep(1);
+    }, 1200); // simulate async payload fetch
+  };
+
+  const handleSelectOption = (key: string, val: string) => {
+    setAnswers((prev) => ({ ...prev, [key]: val }));
+  };
 
   const logicalQuestions = [
     {
@@ -47,9 +86,7 @@ export default function Assessment() {
     },
   ];
 
-  const handleSelectOption = (key: string, val: string) => {
-    setAnswers((prev) => ({ ...prev, [key]: val }));
-  };
+
 
   const getResultsData = () => {
     return [
@@ -63,65 +100,83 @@ export default function Assessment() {
 
   return (
     <div style={{ display: "flex", background: "#0A0A0F", minHeight: "100vh" }}>
-      <Sidebar />
-      <main style={{ flex: 1, marginLeft: 240, padding: "32px 36px" }}>
-        {/* Step Indicator */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 32 }}>
-          {steps.map((step, idx) => {
-            const Icon = step.icon;
-            const isCompleted = idx < activeStep;
-            const isActive = idx === activeStep;
-            return (
-              <div
-                key={step.id}
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "12px 16px",
-                  borderRadius: 12,
-                  background: isActive ? "rgba(124, 58, 237, 0.12)" : "rgba(255, 255, 255, 0.02)",
-                  border: `1px solid ${isActive ? "rgba(124, 58, 237, 0.3)" : "rgba(255, 255, 255, 0.05)"}`,
-                  opacity: isCompleted || isActive ? 1 : 0.4,
-                  transition: "all 0.3s ease",
-                }}
-              >
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: isCompleted ? "#10B981" : isActive ? "#7C3AED" : "rgba(255,255,255,0.05)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  {isCompleted ? <CheckCircle2 size={14} color="#fff" /> : idx + 1}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>Step {idx + 1}</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? "#fff" : "#94A3B8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {step.title}
+      {/* Sidebar toggle for mobile */}
+      {showSidebar ? (
+        <Sidebar />
+      ) : (
+        <button
+          onClick={() => setShowSidebar(true)}
+          style={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            background: "rgba(124,58,237,0.2)",
+            border: "none",
+            borderRadius: 8,
+            padding: "8px 12px",
+            color: "#A855F7",
+            cursor: "pointer",
+          }}
+        >
+          ☰ Menu
+        </button>
+      )}
+      <main style={{ flex: 1, marginLeft: showSidebar ? 240 : 0, padding: "32px 36px" }}>
+          <ErrorBoundary>
+            <div style={{ display: "flex", gap: 8, marginBottom: 32 }}>
+              {steps.map((step, idx) => {
+                const isCompleted = idx < activeStep;
+                const isActive = idx === activeStep;
+                return (
+                  <div
+                    key={step.id}
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "12px 16px",
+                      borderRadius: 12,
+                      background: isActive ? "rgba(124, 58, 237, 0.12)" : "rgba(255, 255, 255, 0.02)",
+                      border: `1px solid ${isActive ? "rgba(124, 58, 237, 0.3)" : "rgba(255, 255, 255, 0.05)"}`,
+                      opacity: isCompleted || isActive ? 1 : 0.4,
+                      transition: "all 0.3s ease",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: isCompleted ? "#10B981" : isActive ? "#7C3AED" : "rgba(255,255,255,0.05)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {isCompleted ? <CheckCircle2 size={14} color="#fff" /> : idx + 1}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 10, color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>Step {idx + 1}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? "#fff" : "#94A3B8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{step.title}</div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          </ErrorBoundary>
 
         {/* Content Box */}
         <div className="glass" style={{ padding: "40px 36px", borderRadius: 24, position: "relative" }}>
           {activeStep === 0 && (
             <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>⚡</div>
+              <div style={{ fontSize: 48, marginBottom: 16, color: "#fff" }}>⚡</div>
               <h1 style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginBottom: 12, letterSpacing: "-0.03em" }}>
                 Evaluate Your Industry Readiness
               </h1>
-              <p style={{ color: "#94A3B8", fontSize: 15, lineHeight: 1.7, marginBottom: 32 }}>
+              <p style={{ color: "#D1D5DB", fontSize: 15, lineHeight: 1.7, marginBottom: 32 }}>
                 This adaptive 15-minute assessment measures your logical capabilities, coding speed, debugging reflexes, and language expertise. We will construct an optimized learning roadmap targeting your weaknesses.
               </p>
               <div
@@ -142,8 +197,14 @@ export default function Assessment() {
                   <div style={{ fontSize: 12, color: "#64748B" }}>Generates a radar diagram detailing system strengths.</div>
                 </div>
               </div>
-              <button className="btn-primary" style={{ padding: "14px 32px" }} onClick={() => setActiveStep(1)}>
-                Begin Assessment <ArrowRight size={16} />
+              <button className="btn-primary" style={{ padding: "14px 32px" }} onClick={handleBegin} disabled={isLoading}>
+                {isLoading ? (
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} /> Loading...
+                  </span>
+                ) : (
+                  <>Begin Assessment <ArrowRight size={16} /></>
+                )}
               </button>
             </div>
           )}
@@ -339,7 +400,7 @@ export default function Assessment() {
                     ))}
                   </div>
 
-                  <Link href="/dashboard" className="btn-primary" style={{ display: "inline-flex" }}>
+                  <Link href="/dashboard" className="btn-primary" style={{ display: "inline-flex", background: "#7C3AED", borderColor: "#7C3AED", color: "#fff" }}>
                     Go to Dashboard <ArrowRight size={16} />
                   </Link>
                 </div>
