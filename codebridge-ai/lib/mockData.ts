@@ -13,6 +13,14 @@ export const mockUser = {
   goal: "SDE at a Product Company",
 };
 
+export const mockLeaderboard = [
+  { rank: 1, name: "Alice", avatar: "A", xp: 5400, streak: 30 },
+  { rank: 2, name: "Bob", avatar: "B", xp: 4700, streak: 22 },
+  { rank: 3, name: "Charlie", avatar: "C", xp: 4200, streak: 18 },
+  { rank: 4, name: "Dana", avatar: "D", xp: 3800, streak: 15 },
+  { rank: 5, name: "Evan", avatar: "E", xp: 3500, streak: 12 },
+];
+
 export const mockSkills = [
   { name: "Data Structures", score: 78, color: "#7C3AED" },
   { name: "Algorithms", score: 65, color: "#3B82F6" },
@@ -54,6 +62,13 @@ export const mockProblems = [
         // Your solution here
     }
 }`,
+      "c++": `class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        // Your solution here
+    }
+};`,
+      sql: `-- Two Sum is not a SQL problem\n-- Try Python or JavaScript above`,
     },
     testCases: [
       { input: "nums = [2,7,11,15], target = 9", expected: "[0,1]" },
@@ -77,6 +92,18 @@ export const mockProblems = [
       javascript: `function isValid(s) {
     // Your solution here
 }`,
+      java: `class Solution {
+    public boolean isValid(String s) {
+        // Your solution here
+    }
+}`,
+      "c++": `class Solution {
+public:
+    bool isValid(string s) {
+        // Your solution here
+    }
+};`,
+      sql: `-- Valid Parentheses is not a SQL problem\n-- Try Python or JavaScript above`,
     },
     testCases: [
       { input: 's = "()"', expected: "true" },
@@ -97,6 +124,21 @@ export const mockProblems = [
       python: `def lengthOfLongestSubstring(s: str) -> int:
     # Your solution here
     pass`,
+      javascript: `function lengthOfLongestSubstring(s) {
+    // Your solution here
+}`,
+      java: `class Solution {
+    public int lengthOfLongestSubstring(String s) {
+        // Your solution here
+    }
+}`,
+      "c++": `class Solution {
+public:
+    int lengthOfLongestSubstring(string s) {
+        // Your solution here
+    }
+};`,
+      sql: `-- Longest Substring is not a SQL problem\n-- Try Python or JavaScript above`,
     },
     testCases: [
       { input: 's = "abcabcbb"', expected: "3" },
@@ -116,6 +158,21 @@ export const mockProblems = [
       python: `def merge(intervals: list[list[int]]) -> list[list[int]]:
     # Your solution here
     pass`,
+      javascript: `function merge(intervals) {
+    // Your solution here
+}`,
+      java: `class Solution {
+    public int[][] merge(int[][] intervals) {
+        // Your solution here
+    }
+}`,
+      "c++": `class Solution {
+public:
+    vector<vector<int>> merge(vector<vector<int>>& intervals) {
+        // Your solution here
+    }
+};`,
+      sql: `-- Merge Intervals is not a SQL problem\n-- Try Python or JavaScript above`,
     },
     testCases: [
       { input: "intervals = [[1,3],[2,6],[8,10],[15,18]]", expected: "[[1,6],[8,10],[15,18]]" },
@@ -135,6 +192,21 @@ export const mockProblems = [
       python: `def levelOrder(root) -> list[list[int]]:
     # Your solution here
     pass`,
+      javascript: `function levelOrder(root) {
+    // Your solution here
+}`,
+      java: `class Solution {
+    public List<List<Integer>> levelOrder(TreeNode root) {
+        // Your solution here
+    }
+}`,
+      "c++": `class Solution {
+public:
+    vector<vector<int>> levelOrder(TreeNode* root) {
+        // Your solution here
+    }
+};`,
+      sql: `-- Binary Tree Traversal is not a SQL problem\n-- Try Python or JavaScript above`,
     },
     testCases: [
       { input: "root = [3,9,20,null,null,15,7]", expected: "[[3],[9,20],[15,7]]" },
