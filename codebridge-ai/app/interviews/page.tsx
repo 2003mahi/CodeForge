@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import { mockInterviews } from "@/lib/mockData";
 import { Mic, Video, Timer, MessageSquare, Play, X, CheckCircle, ChevronRight, AlertCircle } from "lucide-react";
@@ -13,6 +13,19 @@ export default function MockInterviews() {
   const [submittedAnswers, setSubmittedAnswers] = useState<Record<number, string>>({});
   const [answerInput, setAnswerInput] = useState("");
   const [finished, setFinished] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (inProgress && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+    } else if (timeLeft === 0 && inProgress) {
+      setFinished(true);
+      setInProgress(false);
+    }
+    return () => clearInterval(timer);
+  }, [inProgress, timeLeft]);
 
   const startInterview = (mock: typeof mockInterviews[0]) => {
     setSelectedMock(mock);
@@ -206,8 +219,19 @@ export default function MockInterviews() {
                   />
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button className="btn-primary" style={{ padding: "12px 28px" }} onClick={handleNextQuestion}>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+                  <button
+                    style={{ padding: "12px 28px", background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#94A3B8", cursor: "pointer", fontSize: 14, fontWeight: 600 }}
+                    onClick={() => setInProgress(false)}
+                  >
+                    Exit
+                  </button>
+                  <button
+                    className="btn-primary"
+                    style={{ padding: "12px 28px", opacity: answerInput.trim().length === 0 ? 0.5 : 1, cursor: answerInput.trim().length === 0 ? "not-allowed" : "pointer" }}
+                    onClick={handleNextQuestion}
+                    disabled={answerInput.trim().length === 0}
+                  >
                     {currentQuestionIdx < selectedMock.questions.length - 1 ? "Next Question" : "Finish Interview"} <ChevronRight size={16} />
                   </button>
                 </div>
