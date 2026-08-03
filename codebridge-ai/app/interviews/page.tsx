@@ -1,17 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
 import Sidebar from "@/components/layout/Sidebar";
-import { mockInterviews } from "@/lib/mockData";
+import LoadingSkeleton from "@/app/components/LoadingSkeleton";
+import useSWR from "swr";
+import { Badge } from "@/components/ui/Badge";
 import { Mic, Video, Timer, MessageSquare, Play, X, CheckCircle, ChevronRight, AlertCircle } from "lucide-react";
 
+interface Mock {
+  id: string;
+  company: string;
+  type: string;
+  duration: number;
+  questions: { title: string; description: string; tags: string[] }[];
+  logo?: string;
+}
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export default function MockInterviews() {
-  const [selectedMock, setSelectedMock] = useState<typeof mockInterviews[0] | null>(null);
+  const [selectedMock, setSelectedMock] = useState<any | null>(null);
   const [inProgress, setInProgress] = useState(false);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes
   const [submittedAnswers, setSubmittedAnswers] = useState<Record<number, string>>({});
   const [answerInput, setAnswerInput] = useState("");
+  const { data: interviews, error } = useSWR('/api/interviews', fetcher);
   const [finished, setFinished] = useState(false);
 
   useEffect(() => {
@@ -27,7 +41,7 @@ export default function MockInterviews() {
     return () => clearInterval(timer);
   }, [inProgress, timeLeft]);
 
-  const startInterview = (mock: typeof mockInterviews[0]) => {
+  const startInterview = (mock: any) => {
     setSelectedMock(mock);
     setInProgress(true);
     setCurrentQuestionIdx(0);
@@ -111,39 +125,39 @@ export default function MockInterviews() {
           </div>
         )}
 
-        {/* Mock Interview List */}
-        {!inProgress && !finished && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
-            {mockInterviews.map((mock) => (
-              <div key={mock.id} className="glass card-hover" style={{ padding: 24, borderRadius: 20 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+      {/* Mock Interview List */}
+      {!inProgress && !finished && (
+        <>
+          {!interviews && !error && <LoadingSkeleton count={4} />}
+                      {interviews?.map((mock: Mock) => (
+            <div key={mock.id} className="glass card-hover border-animated" style={{ padding: 28, borderRadius: 20, marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div className="avatar">
+                    <div className="w-14 rounded-full" style={{ background: `url(${mock.logo}) center/cover` }} />
+                  </div>
                   <div>
-                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{mock.company}</h3>
-                    <p style={{ fontSize: 12, color: "#64748B" }}>{mock.type} Prep Round</p>
-                  </div>
-                  <span className={`badge ${mock.difficulty === "Easy" ? "badge-green" : mock.difficulty === "Medium" ? "badge-orange" : "badge-red"}`}>
-                    {mock.difficulty}
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#94A3B8" }}>
-                    <Timer size={14} color="#7C3AED" />
-                    <span>Duration: {mock.duration} minutes</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#94A3B8" }}>
-                    <MessageSquare size={14} color="#3B82F6" />
-                    <span>{mock.questions.length} Questions</span>
+                    <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{mock.company}</h3>
+                    <p style={{ fontSize: 13, color: "#94A3B8" }}>{mock.type} Round</p>
                   </div>
                 </div>
-
-                <button className="btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => startInterview(mock)}>
-                  <Play size={14} /> Start Simulation
-                </button>
+                <Badge className="badge badge-outline">{mock.type}</Badge>
               </div>
-            ))}
-          </div>
-        )}
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+                <Timer size={14} color="#7C3AED" />
+                <span style={{ fontSize: 13, color: "#94A3B8" }}>Duration: {mock.duration} minutes</span>
+                <MessageSquare size={14} color="#3B82F6" />
+                <span style={{ fontSize: 13, color: "#94A3B8" }}>{mock.questions.length} Questions</span>
+              </div>
+
+              <button className="btn-primary w-full justify-center" onClick={() => startInterview(mock)}>
+                <Play size={14} /> Start Simulation
+              </button>
+            </div>
+          ))}
+        </>
+      )}
 
         {/* Live Simulator Modal */}
         {inProgress && selectedMock && (
@@ -179,7 +193,7 @@ export default function MockInterviews() {
               {/* Left Panel: Question Description */}
               <div className="glass" style={{ padding: 28, borderRadius: 20, overflowY: "auto" }}>
                 <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-                  {selectedMock.questions[currentQuestionIdx].tags.map((tag, i) => (
+                  {selectedMock.questions[currentQuestionIdx].tags.map((tag: string, i: number) => (
                     <span key={i} className="badge badge-purple">{tag}</span>
                   ))}
                 </div>

@@ -57,23 +57,32 @@ export default function AIMentor() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const sendMessage = (text: string = input) => {
+  const sendMessage = async (text: string = input) => {
     if (!text.trim()) return;
     const userMsg: Message = { role: "user", content: text, timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = aiResponses[text] || aiResponses.default;
+    try {
+      const res = await fetch("/api/mentor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, context: { topic: "Algorithms" } }),
+      });
+      const data = await res.json();
+      
       const aiMsg: Message = {
         role: "ai",
-        content: response,
+        content: data.reply || data.error || "I'm having trouble connecting right now.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       setMessages((prev) => [...prev, aiMsg]);
+    } catch (error) {
+       setMessages((prev) => [...prev, { role: "ai", content: "Network error fetching AI response.", timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]);
+    } finally {
       setIsTyping(false);
-    }, 1200 + Math.random() * 800);
+    }
   };
 
   return (

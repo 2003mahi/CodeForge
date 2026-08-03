@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
   Code2,
@@ -35,7 +37,30 @@ const quickActions = [
 ];
 
 export default function Sidebar() {
+  const [user, setUser] = useState<any>(null);
+  const supabase = createClient();
+  const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser({
+          name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+          email: user.email,
+          avatar: (user.user_metadata?.full_name || user.email || "U")[0].toUpperCase(),
+          level: "Beginner", // fetch from DB in a real app
+          streak: 0,
+          weeklyXP: 0,
+        });
+      }
+    });
+  }, [supabase]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   return (
     <aside
@@ -109,18 +134,23 @@ export default function Sidebar() {
               flexShrink: 0,
             }}
           >
-            {mockUser.avatar}
+            {user ? user.avatar : mockUser.avatar}
           </div>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {mockUser.name}
+              {user ? user.name : "Loading..."}
             </div>
-            <div style={{ fontSize: 11, color: "#94A3B8" }}>{mockUser.level}</div>
+            <div style={{ fontSize: 11, color: "#94A3B8" }}>{user ? user.level : ""}</div>
           </div>
         </div>
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
-          <Flame size={13} color="#F59E0B" />
-          <span style={{ fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>{mockUser.streak} day streak</span>
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Flame size={13} color="#F59E0B" />
+            <span style={{ fontSize: 12, color: "#F59E0B", fontWeight: 600 }}>{user ? user.streak : 0} day streak</span>
+          </div>
+          <button onClick={handleSignOut} style={{ background: "none", border: "none", color: "#EF4444", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+            Sign out
+          </button>
         </div>
       </div>
 

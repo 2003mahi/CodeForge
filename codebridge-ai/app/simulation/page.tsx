@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import { mockSimulationTickets } from "@/lib/mockData";
-import { Building2, AlertTriangle, Zap, BarChart3, GitMerge, Clock, ArrowRight, X, Code2, ChevronRight, Play } from "lucide-react";
+import { Building2, AlertTriangle, Zap, BarChart3, GitMerge, Clock, ArrowRight, X, Code2, ChevronRight, Play, Bug } from "lucide-react";
 
 type Ticket = typeof mockSimulationTickets[0];
 
@@ -187,7 +187,7 @@ export default function IndustrySimulation() {
                               <span key={i} className="badge badge-blue" style={{ fontSize: 9 }}>{tag}</span>
                             ))}
                           </div>
-                          <div style={{ display: "flex", justify: "space-between", alignItems: "center", gap: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                             <span style={{ fontSize: 11, color: "#475569", display: "flex", alignItems: "center", gap: 4 }}>
                               <Clock size={10} /> {ticket.estimatedTime}
                             </span>

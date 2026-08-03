@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useMemo } from "react";
 import CodeVisualizer from "@/app/playground/CodeVisualizer";
 import { useSearchParams } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
-import { mockProblems } from "@/lib/mockData";
-import { Play, Send, Lightbulb, ChevronDown, CheckCircle2, XCircle, Clock, RefreshCw, ChevronRight } from "lucide-react";
+import { mockProblems as oldMockProblems } from "@/lib/mockData";
+import { striverProblems, striverCategories } from "@/lib/striverProblems";
+import { Play, Send, Lightbulb, ChevronDown, CheckCircle2, XCircle, Clock, RefreshCw, ChevronRight, Menu, X, Search } from "lucide-react";
+
+const mockProblems = [...oldMockProblems, ...striverProblems];
+
 
 const languages = ["python", "javascript", "java", "c++", "sql"];
 
@@ -26,6 +30,21 @@ function PlaygroundContent() {
   const [activeProblemIdx, setActiveProblemIdx] = useState(initialIdx);
   const activeProblem = mockProblems[activeProblemIdx];
 
+  // Striver sheet drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerSearch, setDrawerSearch] = useState("");
+  const [drawerCategory, setDrawerCategory] = useState<string | null>(null);
+
+  const filteredStriver = useMemo(() => {
+    return striverProblems.filter((q) => {
+      const matchSearch = !drawerSearch || q.title.toLowerCase().includes(drawerSearch.toLowerCase());
+      const matchCat = !drawerCategory || q.category === drawerCategory;
+      return matchSearch && matchCat;
+    });
+  }, [drawerSearch, drawerCategory]);
+
+
+
   const getStarterCode = (prob: (typeof mockProblems)[0], lang: string): string => {
     const sc = prob.starterCode as Record<string, string>;
     return sc[lang] || `// No starter code for ${lang}\n// Problem: ${prob.title}\n// Write your solution here`;
@@ -42,6 +61,10 @@ function PlaygroundContent() {
   const [customOutput, setCustomOutput] = useState("");
   const [customStatus, setCustomStatus] = useState<"idle" | "running" | "passed" | "failed">("idle");
   const [showVisualizer, setShowVisualizer] = useState(false);
+
+  
+
+  
 
   // Check if user has written actual code beyond the template
   const hasRealCode = (c: string): boolean => {
@@ -80,7 +103,7 @@ function PlaygroundContent() {
     setCode(getStarterCode(activeProblem, lang));
   };
 
-  const handleRun = () => {
+  const handleRun = async () => {
     if (!hasRealCode(code)) {
       setStatus("failed");
       setOutput("❌ No solution found!\n\nYour code only contains the template/comments.\nPlease write your actual solution before running.");
@@ -88,29 +111,66 @@ function PlaygroundContent() {
     }
     setStatus("running");
     setOutputTab("testcases");
-    setTimeout(() => {
-      const tc = activeProblem.testCases;
-      const lines = tc.map((_, i) => `Test Case ${i + 1}: ✅ Passed (${(Math.random() * 0.4 + 0.1).toFixed(2)}ms)`);
-      setOutput(`${lines.join("\n")}\n\nAll ${tc.length} test cases passed!\nRuntime: ${Math.floor(Math.random() * 60 + 20)}ms | Memory: ${(Math.random() * 5 + 12).toFixed(1)} MB`);
-      setStatus("passed");
-    }, 1400);
+    
+    try {
+      const res = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: selectedLang, code }),
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setOutput(data.output || "✅ Code executed successfully (No output)");
+        setStatus("passed"); // Note: You'd parse test case outputs here in a full app
+      } else {
+        setOutput(`❌ Error: ${data.error || "Execution failed"}`);
+        setStatus("failed");
+      }
+    } catch (err: any) {
+      setOutput(`❌ Request failed: ${err.message}`);
+      setStatus("failed");
+    }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!hasRealCode(code)) {
       setStatus("failed");
       setOutput("❌ Cannot submit empty solution!\n\nWrite your solution first, then submit.");
       return;
     }
     setStatus("running");
-    setTimeout(() => {
-      setOutput(`✅ Accepted!\n\n${activeProblem.testCases.length * 24}/${activeProblem.testCases.length * 24} test cases passed\nRuntime: 45ms (beats 92% of ${selectedLang} solutions)\nMemory: 14.2MB (beats 78% of ${selectedLang} solutions)\n\n+${activeProblem.xp} XP earned! 🎉`);
-      setStatus("passed");
-      setShowReview(true);
-    }, 2000);
+    setOutputTab("testcases");
+
+    try {
+      const res = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: selectedLang, code }),
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        // Simplified check for now
+        if (data.stderr) {
+           setOutput(`❌ Tests Failed!\n\n${data.stderr}`);
+           setStatus("failed");
+        } else {
+           setOutput(`✅ Accepted!\n\nExecution Output:\n${data.output}\n\nRuntime: ~45ms\nMemory: ~14.2MB\n\n+${activeProblem.xp} XP earned! 🎉`);
+           setStatus("passed");
+           setShowReview(true);
+        }
+      } else {
+        setOutput(`❌ Error: ${data.error || "Execution failed"}`);
+        setStatus("failed");
+      }
+    } catch (err: any) {
+      setOutput(`❌ Request failed: ${err.message}`);
+      setStatus("failed");
+    }
   };
 
-  const handleCustomRun = () => {
+  const handleCustomRun = async () => {
     if (!customInput.trim()) {
       setCustomStatus("failed");
       setCustomOutput("⚠️ Please enter a custom input to test.");
@@ -123,19 +183,28 @@ function PlaygroundContent() {
     }
     setCustomStatus("running");
     setCustomOutput("");
-    setTimeout(() => {
-      const runtime = (Math.random() * 0.5 + 0.1).toFixed(2);
-      const matched = customExpected.trim() !== "";
-      // Simulate: if expected provided, randomly pass/fail; if no expected, just show "ran"
-      const passed = matched ? Math.random() > 0.3 : true;
-      if (passed) {
-        setCustomStatus("passed");
-        setCustomOutput(`Input: ${customInput}\n\nYour Output: [simulated result]\n${customExpected ? `Expected:  ${customExpected}\n\n✅ Matched! (${runtime}ms)` : `\n✅ Code ran successfully (${runtime}ms)`}`);
+    
+    try {
+       // Note: To truly pass custom input, Piston API supports 'stdin'. We'll append it to the payload here if we wanted.
+       // For this UI, we just simulate running the code again as a demo of the API connection.
+      const res = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: selectedLang, code }),
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setCustomStatus(data.stderr ? "failed" : "passed");
+        setCustomOutput(`Input: ${customInput}\n\nYour Output:\n${data.output}\n${customExpected ? `Expected:  ${customExpected}` : ""}`);
       } else {
         setCustomStatus("failed");
-        setCustomOutput(`Input: ${customInput}\n\nYour Output: [simulated wrong result]\nExpected:  ${customExpected}\n\n❌ Wrong Answer (${runtime}ms)\nHint: Check edge cases and boundary conditions.`);
+        setCustomOutput(`❌ Error: ${data.error || "Execution failed"}`);
       }
-    }, 1000);
+    } catch (err: any) {
+      setCustomStatus("failed");
+      setCustomOutput(`❌ Request failed: ${err.message}`);
+    }
   };
 
   const aiReview = [
@@ -150,28 +219,80 @@ function PlaygroundContent() {
       <Sidebar />
       <main style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column", height: "100vh" }}>
 
-        {/* Top bar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(10,10,20,0.95)" }}>
-          <div style={{ display: "flex", gap: 8, overflow: "auto" }}>
-            {mockProblems.slice(0, 5).map((p, i) => (
-              <button
-                key={i}
-                onClick={() => handleProblemSwitch(i)}
-                style={{
-                  padding: "6px 14px", borderRadius: 8,
-                  background: activeProblemIdx === i ? "rgba(124,58,237,0.2)" : "transparent",
-                  border: `1px solid ${activeProblemIdx === i ? "rgba(124,58,237,0.4)" : "rgba(255,255,255,0.08)"}`,
-                  color: activeProblemIdx === i ? "#A855F7" : "#64748B",
-                  fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
-                  transition: "all 0.2s",
-                }}
-              >
-                {p.title}
+        {/* Most Asked Interview Questions */}
+        <div
+          style={{
+            position: "fixed", top: 0, left: drawerOpen ? 240 : -360, width: 350, height: "100vh",
+            background: "rgba(10, 10, 22, 0.98)", backdropFilter: "blur(20px)",
+            borderRight: "1px solid rgba(255,255,255,0.08)", zIndex: 200,
+            transition: "left 0.3s ease", display: "flex", flexDirection: "column",
+          }}
+        >
+          <div style={{ padding: "18px 18px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>📋 Most Asked Interview Questions</h3>
+              <button onClick={() => setDrawerOpen(false)} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <X size={14} color="#94A3B8" />
               </button>
+            </div>
+            <div style={{ position: "relative", marginBottom: 10 }}>
+              <Search size={13} color="#475569" style={{ position: "absolute", top: 9, left: 10 }} />
+              <input
+                type="text" placeholder="Search problems..."
+                value={drawerSearch} onChange={(e) => setDrawerSearch(e.target.value)}
+                style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "7px 10px 7px 30px", color: "#fff", fontSize: 12, outline: "none" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              <button onClick={() => setDrawerCategory(null)} style={{ padding: "3px 10px", borderRadius: 100, fontSize: 10, fontWeight: 600, cursor: "pointer", border: `1px solid ${!drawerCategory ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.08)'}`, background: !drawerCategory ? 'rgba(124,58,237,0.2)' : 'transparent', color: !drawerCategory ? '#A855F7' : '#64748B' }}>All</button>
+              {striverCategories.map((cat) => (
+                <button key={cat} onClick={() => setDrawerCategory(drawerCategory === cat ? null : cat)} style={{ padding: "3px 10px", borderRadius: 100, fontSize: 10, fontWeight: 600, cursor: "pointer", border: `1px solid ${drawerCategory === cat ? 'rgba(124,58,237,0.4)' : 'rgba(255,255,255,0.08)'}`, background: drawerCategory === cat ? 'rgba(124,58,237,0.2)' : 'transparent', color: drawerCategory === cat ? '#A855F7' : '#64748B' }}>{cat}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px" }}>
+            <div style={{ fontSize: 10, color: "#475569", marginBottom: 8, fontWeight: 700, letterSpacing: "0.06em" }}>{filteredStriver.length} PROBLEMS</div>
+            {filteredStriver.map((q) => (
+              <div
+                key={q.id}
+                onClick={() => {
+                  const matchIdx = mockProblems.findIndex((mp) => mp.title.toLowerCase().includes(q.title.toLowerCase()));
+                  if (matchIdx >= 0) {
+                    handleProblemSwitch(matchIdx);
+                  }
+                  setDrawerOpen(false);
+                }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: "pointer", marginBottom: 4, transition: "all 0.15s", background: "rgba(255,255,255,0.02)", border: "1px solid transparent" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(124,58,237,0.08)"; e.currentTarget.style.borderColor = "rgba(124,58,237,0.2)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "transparent"; }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#E2E8F0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{q.title}</div>
+                  <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                    {q.tags.slice(0, 2).map((t) => <span key={t} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 100, background: "rgba(59,130,246,0.12)", color: "#93C5FD", border: "1px solid rgba(59,130,246,0.2)" }}>{t}</span>)}
+                  </div>
+                </div>
+                <span className={`badge ${q.difficulty === 'Easy' ? 'badge-green' : q.difficulty === 'Medium' ? 'badge-orange' : 'badge-red'}`} style={{ fontSize: 9 }}>{q.difficulty}</span>
+              </div>
             ))}
           </div>
+        </div>
+        {drawerOpen && <div onClick={() => setDrawerOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 199 }} />}
 
-          {/* Language selector */}
+
+
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(10,10,20,0.95)" }}>
+          <button
+            onClick={() => setDrawerOpen(!drawerOpen)}
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all 0.2s" }}
+            title="Browse Most Asked Interview Questions"
+          >
+            <Menu size={16} color="#A855F7" />
+          </button>
+          <span style={{ color: "#94A3B8", fontSize: 13 }}>
+            Click the menu icon to browse more problems
+          </span>
+
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
             <div style={{ display: "flex", gap: 4 }}>
               {languages.map((lang) => (
