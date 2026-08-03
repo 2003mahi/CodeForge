@@ -49,6 +49,7 @@ export const mockProblems = [
     solved: true,
     xp: 50,
     language: "Python",
+    hint: "Use a HashMap to store the numbers you have seen so far.",
     description: "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
     starterCode: {
       python: `def twoSum(nums: list[int], target: int) -> list[int]:
