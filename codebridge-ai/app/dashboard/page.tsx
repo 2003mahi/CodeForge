@@ -1,16 +1,20 @@
 "use client";
 
 import Sidebar from "@/components/layout/Sidebar";
-import { mockUser, mockSkills, mockWeeklyActivity, mockProblems, mockStreakData, mockRoadmap } from "@/lib/mockData";
+import { mockUser, mockSkills, mockWeeklyActivity, mockProblems, mockRoadmap } from "@/lib/mockData";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis } from "recharts";
 import { Flame, Zap, Trophy, Code2, TrendingUp, ArrowRight, Star, CheckCircle2, Lock, PlayCircle } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
-const streakData = mockStreakData();
 const today = new Date();
 
 function StreakHeatmap() {
+  const activityData: Record<string, number> = typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("user_weekly_activity") || "{}")
+    : {};
+
   const weeks: string[][] = [];
   const days: string[] = [];
   for (let i = 181; i >= 0; i--) {
@@ -23,10 +27,10 @@ function StreakHeatmap() {
   }
 
   const getColor = (key: string) => {
-    const val = streakData[key];
+    const val = activityData[key] || 0;
     if (!val) return "rgba(255,255,255,0.05)";
-    if (val === 1) return "rgba(124,58,237,0.2)";
-    if (val === 2) return "rgba(124,58,237,0.4)";
+    if (val === 1) return "rgba(124,58,237,0.25)";
+    if (val === 2) return "rgba(124,58,237,0.45)";
     if (val === 3) return "rgba(124,58,237,0.65)";
     return "rgba(124,58,237,0.9)";
   };
@@ -41,7 +45,7 @@ function StreakHeatmap() {
                 key={di}
                 className="heatmap-cell"
                 style={{ background: getColor(day) }}
-                title={`${day}: ${streakData[day] || 0} problems`}
+                title={`${day}: ${activityData[day] || 0} problems`}
               />
             ))}
           </div>
@@ -95,8 +99,70 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
-  const overallScore = Math.round(mockSkills.reduce((a, s) => a + s.score, 0) / mockSkills.length);
+  const [userData, setUserData] = useState<any>(null);
+  const [dynamicSkills, setDynamicSkills] = useState(mockSkills);
+  const [dynamicWeeklyActivity, setDynamicWeeklyActivity] = useState(mockWeeklyActivity);
+
+  const overallScore = Math.round(dynamicSkills.reduce((a, s) => a + s.score, 0) / Math.max(1, dynamicSkills.length));
   const interviewReady = Math.round(overallScore * 0.85);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const emailPrefix = user.email?.split("@")[0] || "User";
+        const displayName = user.user_metadata?.full_name || emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+        
+        // Read stats from localStorage to sync with dashboard
+        const storedStreak = parseInt(localStorage.getItem("user_streak") || "0");
+        const storedXP = parseInt(localStorage.getItem("user_xp") || "0");
+        const storedProblems = parseInt(localStorage.getItem("user_problems_solved") || "0");
+        
+        setUserData({
+          name: displayName,
+          streak: storedStreak,
+          totalXP: storedXP,
+          problemsSolved: storedProblems,
+          college: "CodeBridge AI",
+        });
+      }
+      
+      // Load dynamic skills
+      const storedSkills = JSON.parse(localStorage.getItem("user_skills") || "{}");
+      if (Object.keys(storedSkills).length > 0) {
+        setDynamicSkills(mockSkills.map(s => ({
+          ...s,
+          score: storedSkills[s.name] !== undefined ? storedSkills[s.name] : s.score
+        })));
+      } else {
+        // Init if empty
+        const initialSkills: any = {};
+        mockSkills.forEach(s => initialSkills[s.name] = 10);
+        localStorage.setItem("user_skills", JSON.stringify(initialSkills));
+        setDynamicSkills(mockSkills.map(s => ({ ...s, score: 10 })));
+      }
+
+      // Load weekly activity
+      const storedActivity = JSON.parse(localStorage.getItem("user_weekly_activity") || "{}");
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const newWeekly = [];
+      for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dateStr = d.toISOString().split("T")[0];
+          newWeekly.push({
+              day: days[d.getDay()],
+              problems: storedActivity[dateStr] || 0,
+              xp: (storedActivity[dateStr] || 0) * 50
+          });
+      }
+      setDynamicWeeklyActivity(newWeekly);
+
+    });
+  }, [supabase]);
+
+  const displayUser = userData || { ...mockUser, name: "Loading...", streak: 0, totalXP: 0, problemsSolved: 0 };
 
   return (
     <div style={{ display: "flex", background: "#0A0A0F", minHeight: "100vh" }}>
@@ -107,10 +173,10 @@ export default function Dashboard() {
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 36 }}>
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
-              Welcome back, {mockUser.name.split(" ")[0]}! 👋
+              Welcome back, {displayUser.name.split(" ")[0]}! 👋
             </h1>
             <p style={{ color: "#64748B", marginTop: 4 }}>
-              {mockUser.streak} day streak · {mockUser.totalXP.toLocaleString()} XP earned · {mockUser.college}
+              {displayUser.streak} day streak · {displayUser.totalXP.toLocaleString()} XP earned · {displayUser.college}
             </p>
           </div>
           <Link href="/playground" className="btn-primary" style={{ flexShrink: 0 }}>
@@ -121,9 +187,9 @@ export default function Dashboard() {
         {/* KPI Cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
           {[
-            { label: "Coding Streak", value: `${mockUser.streak}d`, icon: Flame, color: "#F59E0B", sub: "Personal best: 21d" },
+            { label: "Coding Streak", value: `${displayUser.streak}d`, icon: Flame, color: "#F59E0B", sub: `Personal best: ${Math.max(21, displayUser.streak)}d` },
             { label: "Interview Ready", value: `${interviewReady}%`, icon: Trophy, color: "#7C3AED", sub: "+8% this week" },
-            { label: "Problems Solved", value: "127", icon: Code2, color: "#3B82F6", sub: "42 this month" },
+            { label: "Problems Solved", value: `${displayUser.problemsSolved}`, icon: Code2, color: "#3B82F6", sub: `${displayUser.problemsSolved} this month` },
             { label: "Skill Score", value: `${overallScore}/100`, icon: Star, color: "#10B981", sub: "Top 23% of students" },
           ].map((kpi, i) => {
             const Icon = kpi.icon;
@@ -155,7 +221,7 @@ export default function Dashboard() {
               <span className="badge badge-purple"><TrendingUp size={10} /> +34% vs last week</span>
             </div>
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={mockWeeklyActivity} barSize={24}>
+              <BarChart data={dynamicWeeklyActivity} barSize={24}>
                 <XAxis dataKey="day" tick={{ fill: "#64748B", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#64748B", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
@@ -173,9 +239,9 @@ export default function Dashboard() {
           {/* Skill Rings */}
           <div className="glass" style={{ padding: 24, borderRadius: 20 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Skill Breakdown</h3>
-            <p style={{ fontSize: 12, color: "#64748B", marginBottom: 20 }}>Based on your last 30 submissions</p>
+            <p style={{ fontSize: 12, color: "#64748B", marginBottom: 20 }}>Based on your last submissions</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-              {mockSkills.map((s, i) => <SkillRing key={i} {...s} />)}
+              {dynamicSkills.map((s, i) => <SkillRing key={i} {...s} />)}
             </div>
           </div>
         </div>
@@ -188,7 +254,7 @@ export default function Dashboard() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <Flame size={18} color="#F59E0B" />
               <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Coding Streak</h3>
-              <span className="badge badge-orange" style={{ marginLeft: "auto" }}>🔥 {mockUser.streak} days</span>
+              <span className="badge badge-orange" style={{ marginLeft: "auto" }}>🔥 {displayUser.streak} days</span>
             </div>
             <StreakHeatmap />
             <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 11, color: "#475569", alignItems: "center" }}>
@@ -204,18 +270,42 @@ export default function Dashboard() {
           <div className="glass" style={{ padding: 24, borderRadius: 20, overflowY: "auto", maxHeight: 320 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Learning Roadmap</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {mockRoadmap.map((phase, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: phase.status === "active" ? "rgba(124,58,237,0.1)" : "rgba(255,255,255,0.02)", border: `1px solid ${phase.status === "active" ? "rgba(124,58,237,0.3)" : "rgba(255,255,255,0.06)"}` }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: phase.status === "completed" ? "#10B981" : phase.status === "active" ? "#7C3AED" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    {phase.status === "completed" ? <CheckCircle2 size={14} color="#fff" /> : phase.status === "locked" ? <Lock size={12} color="#64748B" /> : <PlayCircle size={14} color="#fff" />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: phase.status === "locked" ? "#475569" : "#fff" }}>{phase.title}</div>
-                    <div style={{ fontSize: 11, color: "#475569" }}>{phase.duration} · {phase.problems} problems</div>
-                  </div>
-                  {phase.status === "active" && <span className="badge badge-purple" style={{ fontSize: 9 }}>Active</span>}
-                </div>
-              ))}
+              {(() => {
+                const solved = displayUser.problemsSolved || 0;
+                // Thresholds: phase completes when user hits cumulative problem count
+                const thresholds = [5, 15, 30, 50, 70];
+                return mockRoadmap.map((phase, i) => {
+                  let status: string;
+                  if (solved >= thresholds[i]) {
+                    status = "completed";
+                  } else if (i === 0 || solved >= thresholds[i - 1]) {
+                    status = "active";
+                  } else {
+                    status = "locked";
+                  }
+                  const phaseProblems = thresholds[i] - (i > 0 ? thresholds[i - 1] : 0);
+                  const phaseSolved = Math.max(0, Math.min(phaseProblems, solved - (i > 0 ? thresholds[i - 1] : 0)));
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: status === "active" ? "rgba(124,58,237,0.1)" : "rgba(255,255,255,0.02)", border: `1px solid ${status === "active" ? "rgba(124,58,237,0.3)" : "rgba(255,255,255,0.06)"}` }}>
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: status === "completed" ? "#10B981" : status === "active" ? "#7C3AED" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {status === "completed" ? <CheckCircle2 size={14} color="#fff" /> : status === "locked" ? <Lock size={12} color="#64748B" /> : <PlayCircle size={14} color="#fff" />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: status === "locked" ? "#475569" : "#fff" }}>{phase.title}</div>
+                        <div style={{ fontSize: 11, color: "#475569" }}>{phase.duration} · {status === "active" ? `${phaseSolved}/${phaseProblems} solved` : `${phase.problems} problems`}</div>
+                      </div>
+                      {status === "active" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
+                            <div style={{ width: `${(phaseSolved / phaseProblems) * 100}%`, height: "100%", background: "#7C3AED", borderRadius: 2, transition: "width 0.5s ease" }} />
+                          </div>
+                          <span className="badge badge-purple" style={{ fontSize: 9 }}>Active</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>

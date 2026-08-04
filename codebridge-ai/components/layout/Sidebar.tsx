@@ -45,13 +45,20 @@ export default function Sidebar() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
+        const emailPrefix = user.email?.split("@")[0] || "User";
+        const displayName = user.user_metadata?.full_name || emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+        
+        // Read stats from localStorage to sync with dashboard
+        const storedStreak = parseInt(localStorage.getItem("user_streak") || "0");
+        const storedXP = parseInt(localStorage.getItem("user_xp") || "0");
+        
         setUser({
-          name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+          name: displayName,
           email: user.email,
-          avatar: (user.user_metadata?.full_name || user.email || "U")[0].toUpperCase(),
+          avatar: displayName[0].toUpperCase(),
           level: "Beginner", // fetch from DB in a real app
-          streak: 0,
-          weeklyXP: 0,
+          streak: storedStreak,
+          weeklyXP: storedXP,
         });
       }
     });
