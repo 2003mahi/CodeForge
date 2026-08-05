@@ -156,9 +156,40 @@ function PlaygroundContent() {
            setOutput(`❌ Tests Failed!\n\n${data.stderr}`);
            setStatus("failed");
         } else {
-           setOutput(`✅ Accepted!\n\nExecution Output:\n${data.output}\n\nRuntime: ~45ms\nMemory: ~14.2MB\n\n+${activeProblem.xp} XP earned! 🎉`);
+           setOutput(`✅ Accepted!\n\nExecution Output:\n${data.output}\n\nRuntime: ~45ms\nMemory: ~14.2MB\n\n+${activeProblem.xp || 50} XP earned! 🎉`);
            setStatus("passed");
            setShowReview(true);
+           
+           // Update localStorage stats
+           const curStreak = parseInt(localStorage.getItem("user_streak") || "0");
+           const curXP = parseInt(localStorage.getItem("user_xp") || "0");
+           const curProblems = parseInt(localStorage.getItem("user_problems_solved") || "0");
+           
+           localStorage.setItem("user_streak", (curStreak + 1).toString());
+           localStorage.setItem("user_xp", (curXP + (activeProblem.xp || 50)).toString());
+           localStorage.setItem("user_problems_solved", (curProblems + 1).toString());
+
+           // Update Weekly Activity
+           const todayStr = new Date().toISOString().split("T")[0];
+           const weeklyActivity = JSON.parse(localStorage.getItem("user_weekly_activity") || "{}");
+           weeklyActivity[todayStr] = (weeklyActivity[todayStr] || 0) + 1;
+           localStorage.setItem("user_weekly_activity", JSON.stringify(weeklyActivity));
+
+           // Update Skills
+           const userSkills = JSON.parse(localStorage.getItem("user_skills") || "{}");
+           const tags = activeProblem.tags || [];
+           if (tags.some((t: string) => ["Array", "Linked List", "Tree", "Matrix"].includes(t))) {
+               userSkills["Data Structures"] = Math.min(100, (userSkills["Data Structures"] || 10) + 2);
+           }
+           if (tags.some((t: string) => ["DP", "Greedy", "Graph", "Math", "Sorting", "Two Pointers", "Binary Search"].includes(t))) {
+               userSkills["Algorithms"] = Math.min(100, (userSkills["Algorithms"] || 10) + 2);
+           }
+           if (selectedLang === "sql") {
+              userSkills["SQL"] = Math.min(100, (userSkills["SQL"] || 10) + 5);
+           }
+           userSkills["Debugging"] = Math.min(100, (userSkills["Debugging"] || 10) + 1);
+           
+           localStorage.setItem("user_skills", JSON.stringify(userSkills));
         }
       } else {
         setOutput(`❌ Error: ${data.error || "Execution failed"}`);
