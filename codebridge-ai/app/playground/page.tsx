@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, Suspense, useMemo } from "react";
+import { useState, Suspense, useMemo, useEffect } from "react";
 import CodeVisualizer from "@/app/playground/CodeVisualizer";
 import { useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import Sidebar from "@/components/layout/Sidebar";
 import { mockProblems as oldMockProblems } from "@/lib/mockData";
 import { striverProblems, striverCategories } from "@/lib/striverProblems";
@@ -62,9 +63,100 @@ function PlaygroundContent() {
   const [customStatus, setCustomStatus] = useState<"idle" | "running" | "passed" | "failed">("idle");
   const [showVisualizer, setShowVisualizer] = useState(false);
 
-  
+  type SavedSubmission = {
+    id: string;
+    problem_id: string;
+    problem_title: string | null;
+    language: string;
+    code: string;
+    status: "attempted" | "solved";
+    output: string | null;
+    updated_at: string;
+  };
+  const [submissions, setSubmissions] = useState<Record<string, SavedSubmission[]>>({});
 
-  
+  const getSubmission = (problemId: string, lang: string): SavedSubmission | undefined =>
+    (submissions[problemId] || []).find((s) => s.language === lang);
+
+  const isSolved = (problemId: string): boolean =>
+    (submissions[problemId] || []).some((s) => s.status === "solved");
+
+  const supabase = createClient();
+
+  const saveSubmission = async (status: "attempted" | "solved", output?: string) => {
+    try {
+      const list = submissions[activeProblem.id] || [];
+      const existing = list.find((s) => s.language === selectedLang);
+      const finalStatus = existing && existing.status === "solved" ? "solved" : status;
+
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          problemId: activeProblem.id,
+          problemTitle: activeProblem.title,
+          language: selectedLang,
+          code,
+          status: finalStatus,
+          output,
+          xp: activeProblem.xp || 50,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.data) {
+        setSubmissions((prev) => {
+          const list = (prev[activeProblem.id] || []).filter((s) => s.language !== selectedLang);
+          return { ...prev, [activeProblem.id]: [json.data, ...list] };
+        });
+      }
+    } catch (err) {
+      // Saving is best-effort; never block the user on a DB error.
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      fetch("/api/submissions")
+        .then((r) => r.json())
+        .then((res) => {
+          if (!mounted || !Array.isArray(res.data)) return;
+          const map: Record<string, SavedSubmission[]> = {};
+          res.data.forEach((s: SavedSubmission) => {
+            if (!map[s.problem_id]) map[s.problem_id] = [];
+            map[s.problem_id].push(s);
+          });
+          setSubmissions(map);
+          const saved = map[mockProblems[initialIdx].id];
+          if (saved && saved.length) {
+            setSelectedLang(saved[0].language);
+            setCode(saved[0].code);
+          }
+        })
+        .catch(() => {});
+    });
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced autosave so the user never loses their in-progress code
+  useEffect(() => {
+    if (status === "running") return;
+    const timer = setTimeout(() => {
+      if (code && hasRealCode(code)) {
+        saveSubmission("attempted");
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
+
+
+
 
   // Check if user has written actual code beyond the template
   const hasRealCode = (c: string): boolean => {
@@ -91,7 +183,14 @@ function PlaygroundContent() {
 
   const handleProblemSwitch = (i: number) => {
     setActiveProblemIdx(i);
-    setCode(getStarterCode(mockProblems[i], selectedLang));
+    const prob = mockProblems[i];
+    const saved = getSubmission(prob.id, selectedLang);
+    if (saved) {
+      setSelectedLang(saved.language);
+      setCode(saved.code);
+    } else {
+      setCode(getStarterCode(prob, selectedLang));
+    }
     setOutput("");
     setStatus("idle");
     setShowHint(false);
@@ -100,7 +199,12 @@ function PlaygroundContent() {
 
   const handleLangSwitch = (lang: string) => {
     setSelectedLang(lang);
-    setCode(getStarterCode(activeProblem, lang));
+    const saved = getSubmission(activeProblem.id, lang);
+    if (saved) {
+      setCode(saved.code);
+    } else {
+      setCode(getStarterCode(activeProblem, lang));
+    }
   };
 
   const handleRun = async () => {
@@ -111,7 +215,7 @@ function PlaygroundContent() {
     }
     setStatus("running");
     setOutputTab("testcases");
-    
+
     try {
       const res = await fetch("/api/execute", {
         method: "POST",
@@ -119,12 +223,13 @@ function PlaygroundContent() {
         body: JSON.stringify({ language: selectedLang, code }),
       });
       const data = await res.json();
-      
-      if (res.ok) {
+
+      if (res.ok && !data.stderr) {
         setOutput(data.output || "✅ Code executed successfully (No output)");
-        setStatus("passed"); // Note: You'd parse test case outputs here in a full app
+        setStatus("passed");
+        saveSubmission("attempted", data.output);
       } else {
-        setOutput(`❌ Error: ${data.error || "Execution failed"}`);
+        setOutput(`❌ Error: ${data.stderr || data.error || "Execution failed"}`);
         setStatus("failed");
       }
     } catch (err: any) {
@@ -149,47 +254,17 @@ function PlaygroundContent() {
         body: JSON.stringify({ language: selectedLang, code }),
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         // Simplified check for now
         if (data.stderr) {
-           setOutput(`❌ Tests Failed!\n\n${data.stderr}`);
-           setStatus("failed");
+          setOutput(`❌ Tests Failed!\n\n${data.stderr}`);
+          setStatus("failed");
         } else {
-           setOutput(`✅ Accepted!\n\nExecution Output:\n${data.output}\n\nRuntime: ~45ms\nMemory: ~14.2MB\n\n+${activeProblem.xp || 50} XP earned! 🎉`);
-           setStatus("passed");
-           setShowReview(true);
-           
-           // Update localStorage stats
-           const curStreak = parseInt(localStorage.getItem("user_streak") || "0");
-           const curXP = parseInt(localStorage.getItem("user_xp") || "0");
-           const curProblems = parseInt(localStorage.getItem("user_problems_solved") || "0");
-           
-           localStorage.setItem("user_streak", (curStreak + 1).toString());
-           localStorage.setItem("user_xp", (curXP + (activeProblem.xp || 50)).toString());
-           localStorage.setItem("user_problems_solved", (curProblems + 1).toString());
-
-           // Update Weekly Activity
-           const todayStr = new Date().toISOString().split("T")[0];
-           const weeklyActivity = JSON.parse(localStorage.getItem("user_weekly_activity") || "{}");
-           weeklyActivity[todayStr] = (weeklyActivity[todayStr] || 0) + 1;
-           localStorage.setItem("user_weekly_activity", JSON.stringify(weeklyActivity));
-
-           // Update Skills
-           const userSkills = JSON.parse(localStorage.getItem("user_skills") || "{}");
-           const tags = activeProblem.tags || [];
-           if (tags.some((t: string) => ["Array", "Linked List", "Tree", "Matrix"].includes(t))) {
-               userSkills["Data Structures"] = Math.min(100, (userSkills["Data Structures"] || 10) + 2);
-           }
-           if (tags.some((t: string) => ["DP", "Greedy", "Graph", "Math", "Sorting", "Two Pointers", "Binary Search"].includes(t))) {
-               userSkills["Algorithms"] = Math.min(100, (userSkills["Algorithms"] || 10) + 2);
-           }
-           if (selectedLang === "sql") {
-              userSkills["SQL"] = Math.min(100, (userSkills["SQL"] || 10) + 5);
-           }
-           userSkills["Debugging"] = Math.min(100, (userSkills["Debugging"] || 10) + 1);
-           
-           localStorage.setItem("user_skills", JSON.stringify(userSkills));
+          setOutput(`✅ Accepted!\n\nExecution Output:\n${data.output}\n\nRuntime: ~45ms\nMemory: ~14.2MB\n\n+${activeProblem.xp || 50} XP earned! 🎉`);
+          setStatus("passed");
+          setShowReview(true);
+          saveSubmission("solved", data.output);
         }
       } else {
         setOutput(`❌ Error: ${data.error || "Execution failed"}`);
@@ -214,17 +289,17 @@ function PlaygroundContent() {
     }
     setCustomStatus("running");
     setCustomOutput("");
-    
+
     try {
-       // Note: To truly pass custom input, Piston API supports 'stdin'. We'll append it to the payload here if we wanted.
-       // For this UI, we just simulate running the code again as a demo of the API connection.
+      // Note: To truly pass custom input, Piston API supports 'stdin'. We'll append it to the payload here if we wanted.
+      // For this UI, we just simulate running the code again as a demo of the API connection.
       const res = await fetch("/api/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language: selectedLang, code }),
       });
       const data = await res.json();
-      
+
       if (res.ok) {
         setCustomStatus(data.stderr ? "failed" : "passed");
         setCustomOutput(`Input: ${customInput}\n\nYour Output:\n${data.output}\n${customExpected ? `Expected:  ${customExpected}` : ""}`);
@@ -304,6 +379,7 @@ function PlaygroundContent() {
                   </div>
                 </div>
                 <span className={`badge ${q.difficulty === 'Easy' ? 'badge-green' : q.difficulty === 'Medium' ? 'badge-orange' : 'badge-red'}`} style={{ fontSize: 9 }}>{q.difficulty}</span>
+                {isSolved(q.id) && <CheckCircle2 size={14} color="#10B981" style={{ flexShrink: 0 }} />}
               </div>
             ))}
           </div>
@@ -356,6 +432,11 @@ function PlaygroundContent() {
                 {activeProblem.difficulty}
               </span>
               <span className="badge badge-purple">+{activeProblem.xp} XP</span>
+              {isSolved(activeProblem.id) && (
+                <span style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 100, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.35)", color: "#10B981", fontSize: 11, fontWeight: 700 }}>
+                  <CheckCircle2 size={12} /> Solved
+                </span>
+              )}
             </div>
             <h2 style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginBottom: 12 }}>{activeProblem.title}</h2>
             <p style={{ color: "#94A3B8", fontSize: 14, lineHeight: 1.7, marginBottom: 20 }}>{activeProblem.description}</p>
@@ -572,8 +653,8 @@ function PlaygroundContent() {
               <h4 style={{ fontSize: 12, fontWeight: 700, color: "#64748B", letterSpacing: "0.06em", marginBottom: 10 }}>MORE PROBLEMS</h4>
               {mockProblems.map((p, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer" }}>
-                  <span style={{ fontSize: 13, color: p.solved ? "#10B981" : "#64748B" }}>{p.solved ? "✅" : "⬜"}</span>
-                  <span style={{ fontSize: 13, color: "#94A3B8", flex: 1 }}>{p.title}</span>
+                  {isSolved(p.id) ? <CheckCircle2 size={15} color="#10B981" style={{ flexShrink: 0 }} /> : <span style={{ fontSize: 13, color: "#475569" }}>⬜</span>}
+                  <span style={{ fontSize: 13, color: isSolved(p.id) ? "#10B981" : "#94A3B8", flex: 1 }}>{p.title}</span>
                   <span className={`badge ${p.difficulty === "Easy" ? "badge-green" : p.difficulty === "Medium" ? "badge-orange" : "badge-red"}`} style={{ fontSize: 9 }}>{p.difficulty}</span>
                 </div>
               ))}

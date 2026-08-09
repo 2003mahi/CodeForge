@@ -47,19 +47,21 @@ export default function Sidebar() {
       if (user) {
         const emailPrefix = user.email?.split("@")[0] || "User";
         const displayName = user.user_metadata?.full_name || emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-        
-        // Read stats from localStorage to sync with dashboard
-        const storedStreak = parseInt(localStorage.getItem("user_streak") || "0");
-        const storedXP = parseInt(localStorage.getItem("user_xp") || "0");
-        
-        setUser({
-          name: displayName,
-          email: user.email,
-          avatar: displayName[0].toUpperCase(),
-          level: "Beginner", // fetch from DB in a real app
-          streak: storedStreak,
-          weeklyXP: storedXP,
-        });
+
+        fetch("/api/me")
+          .then((r) => r.json())
+          .then((res) => {
+            if (!res.user) return;
+            setUser({
+              name: displayName,
+              email: user.email,
+              avatar: displayName[0].toUpperCase(),
+              level: "Beginner",
+              streak: res.user.streak,
+              weeklyXP: res.user.total_xp,
+            });
+          })
+          .catch(() => {});
       }
     });
   }, [supabase]);
@@ -203,13 +205,13 @@ export default function Sidebar() {
         style={{ padding: "12px 14px", borderRadius: 12, marginTop: 16 }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontSize: 11, color: "#94A3B8" }}>Weekly XP</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#A855F7" }}>{mockUser.weeklyXP} / 1000</span>
+          <span style={{ fontSize: 11, color: "#94A3B8" }}>Total XP</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#A855F7" }}>{(user ? user.weeklyXP : mockUser.weeklyXP)?.toLocaleString()}</span>
         </div>
         <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
           <div
             style={{
-              width: `${(mockUser.weeklyXP / 1000) * 100}%`,
+              width: `${Math.min(100, ((user ? user.weeklyXP : mockUser.weeklyXP) / 1000) * 100)}%`,
               height: "100%",
               background: "linear-gradient(90deg, #7C3AED, #3B82F6)",
               borderRadius: 3,
@@ -218,7 +220,7 @@ export default function Sidebar() {
           />
         </div>
         <div style={{ fontSize: 10, color: "#475569", marginTop: 4 }}>
-          {1000 - mockUser.weeklyXP} XP to next level
+          {1000 - (user ? user.weeklyXP : mockUser.weeklyXP) > 0 ? `${(1000 - (user ? user.weeklyXP : mockUser.weeklyXP)).toLocaleString()} XP to next level` : "Top level reached 🎉"}
         </div>
       </div>
     </aside>
