@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Protect all routes except /login and public assets
-  const isPublicRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/_next') || request.nextUrl.pathname === '/'
+  const isPublicRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/_next') || request.nextUrl.pathname === '/' || request.nextUrl.pathname.startsWith('/api/debug-code')
 
   if (!user && !isPublicRoute) {
     const loginUrl = request.nextUrl.clone()

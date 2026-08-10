@@ -8,17 +8,25 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: submissions } = await supabase
+  const { data: submissions, error: submissionsError } = await supabase
     .from('user_submissions')
     .select('*')
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false });
 
-  const { data: statsRow } = await supabase
+  if (submissionsError) {
+    console.error('[API /api/me] user_submissions fetch error:', submissionsError);
+  }
+
+  const { data: statsRow, error: statsError } = await supabase
     .from('users')
     .select('*')
     .eq('id', user.id)
     .maybeSingle();
+
+  if (statsError) {
+    console.error('[API /api/me] users fetch error:', statsError);
+  }
 
   const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
 

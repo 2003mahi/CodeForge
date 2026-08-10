@@ -18,12 +18,32 @@ const localDateStr = (d: Date) => {
 };
 
 async function refreshUserStats(supabase: SupabaseClient, userId: string, name: string, email?: string) {
+  console.log(`[refreshUserStats] Refreshing stats for user ${userId} (${name})...`);
+
+  // Try RPC first for security definer context (bypasses RLS issues)
+  const { error: rpcError } = await supabase.rpc('upsert_user_stats', {
+    p_user_id: userId,
+    p_email: email ?? null,
+    p_name: name
+  });
+
+  if (!rpcError) {
+    console.log('[refreshUserStats] RPC upsert_user_stats completed successfully.');
+    return;
+  }
+
+  console.warn('[refreshUserStats] RPC upsert_user_stats failed or doesn\'t exist, falling back to manual calculation. Error:', rpcError);
+
   // Distinct solved problems -> problems_solved + total_xp
-  const { data: solved } = await supabase
+  const { data: solved, error: solvedError } = await supabase
     .from('user_submissions')
     .select('problem_id, xp')
     .eq('user_id', userId)
     .eq('status', 'solved');
+
+  if (solvedError) {
+    console.error('[refreshUserStats] Error fetching solved submissions for stats:', solvedError);
+  }
 
   const byProblem: Record<string, number> = {};
   (solved || []).forEach((r) => {
@@ -34,13 +54,17 @@ async function refreshUserStats(supabase: SupabaseClient, userId: string, name: 
 
   // Streak from consecutive days with a solved submission
   // Use updated_at (not created_at) because on upsert only updated_at changes
-  const { data: solvedDates } = await supabase
+  const { data: solvedDates, error: solvedDatesError } = await supabase
     .from('user_submissions')
     .select('updated_at')
     .eq('user_id', userId)
     .eq('status', 'solved')
     .order('updated_at', { ascending: false })
     .limit(500);
+
+  if (solvedDatesError) {
+    console.error('[refreshUserStats] Error fetching solved dates for stats:', solvedDatesError);
+  }
 
   const daySet = new Set((solvedDates || []).map((r) => localDateStr(new Date(r.updated_at))));
   let streak = 0;
@@ -62,7 +86,9 @@ async function refreshUserStats(supabase: SupabaseClient, userId: string, name: 
     d.setDate(d.getDate() - 1);
   }
 
-  await supabase.from('users').upsert(
+  console.log(`[refreshUserStats] Calculated manual stats - solved: ${problems_solved}, total_xp: ${total_xp}, streak: ${streak}. Performing manual upsert...`);
+
+  const { error: upsertError } = await supabase.from('users').upsert(
     {
       id: userId,
       email: email ?? null,
@@ -74,6 +100,12 @@ async function refreshUserStats(supabase: SupabaseClient, userId: string, name: 
     },
     { onConflict: 'id' }
   );
+
+  if (upsertError) {
+    console.error('[refreshUserStats] Manual upsert to users table failed:', upsertError);
+  } else {
+    console.log('[refreshUserStats] Manual upsert to users table completed successfully.');
+  }
 }
 
 export async function GET() {
@@ -144,7 +176,10 @@ export async function POST(request: Request) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error('[API /api/submissions POST] user_submissions upsert failed:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   // Always refresh stats so the users row is always created and up-to-date
   const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
