@@ -258,6 +258,13 @@ export default function Dashboard() {
         });
         setActivityMap(act);
 
+        // Problems solved THIS month
+        const now = new Date();
+        const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const solvedThisMonth = Object.entries(act)
+          .filter(([day]) => day.startsWith(monthPrefix))
+          .reduce((sum, [, cnt]) => sum + cnt, 0);
+
         setSolvedIds(new Set(solved.map((s: any) => s.problem_id)));
 
         setUserData({
@@ -265,6 +272,7 @@ export default function Dashboard() {
           streak: res.user.streak,
           totalXP: res.user.total_xp,
           problemsSolved: res.user.problems_solved,
+          solvedThisMonth,
           college: "CodeBridge AI",
           createdYear: new Date(res.user.created_at || Date.now()).getFullYear(),
         });
@@ -314,7 +322,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  const displayUser = userData || { ...mockUser, name: "Loading...", streak: 0, totalXP: 0, problemsSolved: 0, createdYear: 2024 };
+  const displayUser = userData || { ...mockUser, name: "Loading...", streak: 0, totalXP: 0, problemsSolved: 0, solvedThisMonth: 0, createdYear: 2024 };
 
   return (
     <div style={{ display: "flex", background: "#0A0A0F", minHeight: "100vh" }}>
@@ -339,9 +347,9 @@ export default function Dashboard() {
         {/* KPI Cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
           {[
-            { label: "Coding Streak", value: `${displayUser.streak}d`, icon: Flame, color: "#F59E0B", sub: `Personal best: ${Math.max(21, displayUser.streak)}d` },
+            { label: "Coding Streak", value: `${displayUser.streak}d`, icon: Flame, color: "#F59E0B", sub: `Personal best: ${Math.max(displayUser.streak, 1)}d` },
             { label: "Interview Ready", value: `${interviewReady}%`, icon: Trophy, color: "#7C3AED", sub: "+8% this week" },
-            { label: "Problems Solved", value: `${displayUser.problemsSolved}`, icon: Code2, color: "#3B82F6", sub: `${displayUser.problemsSolved} this month` },
+            { label: "Problems Solved", value: `${displayUser.problemsSolved}`, icon: Code2, color: "#3B82F6", sub: `${displayUser.solvedThisMonth ?? 0} this month` },
             { label: "Skill Score", value: `${overallScore}/100`, icon: Star, color: "#10B981", sub: "Top 23% of students" },
           ].map((kpi, i) => {
             const Icon = kpi.icon;
