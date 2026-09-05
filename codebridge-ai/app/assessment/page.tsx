@@ -88,15 +88,39 @@ export default function Assessment() {
 
 
 
+  const [userName, setUserName] = useState<string>("Candidate");
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.user?.name) setUserName(res.user.name);
+      })
+      .catch(() => {});
+  }, []);
+
   const getResultsData = () => {
+    let logicalCorrect = 0;
+    logicalQuestions.forEach((q) => {
+      if (answers[q.id] === q.answer) logicalCorrect++;
+    });
+    const logicalScore = Math.round((logicalCorrect / logicalQuestions.length) * 100);
+
+    let debugCorrect = 0;
+    debugQuestions.forEach((q) => {
+      if (answers[q.id] === q.answer) debugCorrect++;
+    });
+    const debugScore = Math.round((debugCorrect / debugQuestions.length) * 100);
+
     return [
-      { subject: "Problem Solving", A: 75, fullMark: 100 },
-      { subject: "Debugging", A: 85, fullMark: 100 },
-      { subject: "Language Proficiency", A: 70, fullMark: 100 },
-      { subject: "Theoretical Basics", A: 90, fullMark: 100 },
-      { subject: "Production Readiness", A: 45, fullMark: 100 },
+      { subject: "Problem Solving", A: Math.max(30, logicalScore), fullMark: 100 },
+      { subject: "Debugging", A: Math.max(30, debugScore), fullMark: 100 },
+      { subject: "Language Proficiency", A: selectedLang ? 80 : 65, fullMark: 100 },
+      { subject: "Theoretical Basics", A: Math.max(40, Math.round((logicalScore + 60) / 2)), fullMark: 100 },
+      { subject: "Production Readiness", A: Math.max(35, Math.round((debugScore + 40) / 2)), fullMark: 100 },
     ];
   };
+
 
   return (
     <div style={{ display: "flex", background: "#0A0A0F", minHeight: "100vh" }}>
@@ -381,17 +405,17 @@ export default function Assessment() {
                 <div>
                   <span className="badge badge-purple" style={{ marginBottom: 12 }}>Assessment Finalized</span>
                   <h2 style={{ fontSize: 26, fontWeight: 900, color: "#fff", marginBottom: 12, letterSpacing: "-0.02em" }}>
-                    Your Industry Readiness Blueprint
+                    {userName}&apos;s Industry Readiness Blueprint
                   </h2>
                   <p style={{ color: "#94A3B8", fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
-                    Excellent theoretical knowledge. Your structural debugging proficiency is in the top 15% range. However, system design and framework integration concepts represent key blockers.
+                    Analysis completed across algorithmic reasoning, debugging, and target technical skills. Review your diagnostic strengths and curated initial practice modules below.
                   </p>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
                     {[
-                      { title: "Target Focus", value: "Production API Design, Express middleware patterns, database query latency." },
-                      { title: "Suggested Lab", value: "Jira ticket CB-101 (Payment API Failure recovery)" },
-                      { title: "Goal Position", value: "Full Stack Engineer" },
+                      { title: "Target Focus", value: "Production API Design, data structures, and edge-case testing." },
+                      { title: "Suggested Lab", value: "Playground Two Sum & Debug Lab: Off-by-One in Binary Search" },
+                      { title: "Goal Position", value: answers["career_1"] || "Full Stack Software Engineer" },
                     ].map((item, i) => (
                       <div key={i} style={{ display: "flex", gap: 12, fontSize: 13 }}>
                         <span style={{ color: "#7C3AED", fontWeight: 700, minWidth: 100 }}>{item.title}:</span>
@@ -410,7 +434,7 @@ export default function Assessment() {
                     <RadarChart cx="50%" cy="50%" outerRadius="70%" data={getResultsData()}>
                       <PolarGrid stroke="rgba(255, 255, 255, 0.08)" />
                       <PolarAngleAxis dataKey="subject" tick={{ fill: "#64748B", fontSize: 11 }} />
-                      <Radar name="Aryan" dataKey="A" stroke="#7C3AED" fill="#7C3AED" fillOpacity={0.3} />
+                      <Radar name={userName} dataKey="A" stroke="#7C3AED" fill="#7C3AED" fillOpacity={0.3} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>

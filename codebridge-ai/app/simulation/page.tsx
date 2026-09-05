@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import { mockSimulationTickets } from "@/lib/mockData";
 import { Building2, AlertTriangle, Zap, BarChart3, GitMerge, Clock, ArrowRight, X, Code2, ChevronRight, Play, Bug } from "lucide-react";
@@ -28,6 +29,7 @@ const typeIcons: Record<string, typeof Bug> = {
 };
 
 export default function IndustrySimulation() {
+  const router = useRouter();
   const [tickets, setTickets] = useState(mockSimulationTickets);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [activeScenario, setActiveScenario] = useState<string | null>(null);
@@ -74,6 +76,14 @@ export default function IndustrySimulation() {
       duration: "3h",
     },
   ];
+
+  const handleLaunchScenario = (scenarioId: string) => {
+    if (scenarioId === "api-failure" || scenarioId === "merge-conflict") {
+      router.push("/debug");
+    } else {
+      router.push("/playground");
+    }
+  };
 
   return (
     <div style={{ display: "flex", background: "#0A0A0F", minHeight: "100vh" }}>
@@ -128,7 +138,7 @@ export default function IndustrySimulation() {
                   <button
                     className="btn-primary"
                     style={{ padding: "6px 14px", fontSize: 12 }}
-                    onClick={(e) => { e.stopPropagation(); setActiveScenario(s.id); }}
+                    onClick={(e) => { e.stopPropagation(); handleLaunchScenario(s.id); }}
                   >
                     <Play size={12} /> Start
                   </button>
@@ -264,7 +274,17 @@ export default function IndustrySimulation() {
                     Move to {col.label}
                   </button>
                 ))}
-                <button className="btn-primary" style={{ flex: 1, justifyContent: "center", fontSize: 13 }}>
+                <button
+                  className="btn-primary"
+                  style={{ flex: 1, justifyContent: "center", fontSize: 13 }}
+                  onClick={() => {
+                    if (selectedTicket.type === "Bug") {
+                      router.push("/debug");
+                    } else {
+                      router.push("/playground");
+                    }
+                  }}
+                >
                   <Code2 size={15} /> Start Coding
                 </button>
               </div>

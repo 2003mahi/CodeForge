@@ -12,16 +12,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
     
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'placeholder') {
+    const apiKey = process.env.GEMINI_API_KEY || '';
+    if (!apiKey || apiKey.includes('placeholder') || !apiKey.startsWith('AIzaSy')) {
       return NextResponse.json(
-        { reply: "⚠️ Please configure your GEMINI_API_KEY in .env.local to enable the real AI Mentor." },
+        { reply: "⚠️ Google Gemini requires an API key from Google AI Studio (starting with 'AIzaSy...'). Please configure a valid GEMINI_API_KEY in .env.local to enable live AI responses." },
         { status: 200 }
       );
     }
 
+    const ai = new GoogleGenAI({ apiKey });
+
     const systemPrompt = `You are the CodeBridge AI Mentor. Your job is to help users learn algorithms, data structures, and software engineering. Be encouraging, precise, and format your code blocks correctly. Keep responses concise unless asked for a deep dive. Current context: ${JSON.stringify(context || {})}`;
 
-    // Note: If streaming is required, we can use generateContentStream, but for simplicity here we await the full response.
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: [
@@ -34,6 +36,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ reply: response.text });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to generate response' }, { status: 500 });
+    console.error('Mentor API error:', error);
+    return NextResponse.json(
+      { reply: `⚠️ AI Mentor error: ${error.message || 'Unable to contact AI service'}. Please check your API key.` },
+      { status: 200 }
+    );
   }
 }

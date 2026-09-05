@@ -92,9 +92,15 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Link href="/dashboard" className="btn-ghost" style={{ padding: "8px 20px", fontSize: 14 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <Link href="/roadmap" className="btn-ghost" style={{ padding: "8px 16px", fontSize: 14 }}>
+            Roadmaps
+          </Link>
+          <Link href="/dashboard" className="btn-ghost" style={{ padding: "8px 16px", fontSize: 14 }}>
             Dashboard
+          </Link>
+          <Link href="/login" className="btn-ghost" style={{ padding: "8px 16px", fontSize: 14 }}>
+            Sign In
           </Link>
           <Link href="/playground" className="btn-primary" style={{ padding: "8px 20px", fontSize: 14 }}>
             Start Coding <ArrowRight size={15} />

@@ -54,24 +54,43 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Protect all routes except /login and public assets
-  const isPublicRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/_next') || request.nextUrl.pathname === '/' || request.nextUrl.pathname.startsWith('/api/debug-code')
-
-  if (!user && !isPublicRoute) {
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
-    return NextResponse.redirect(loginUrl)
+  let user = null;
+  try {
+    const userRes = await supabase.auth.getUser();
+    user = userRes?.data?.user ?? null;
+  } catch (err) {
+    // If Supabase is unreachable or DNS fails, do not throw 500
+    user = null;
   }
 
-  if (user && request.nextUrl.pathname === '/login') {
-    const dashboardUrl = request.nextUrl.clone()
-    dashboardUrl.pathname = '/dashboard'
-    return NextResponse.redirect(dashboardUrl)
+  const pathname = request.nextUrl.pathname;
+
+  // Protect only strictly private routes; ensure API routes, login, landing, and public sandboxes never redirect unexpectedly
+  const isPublicRoute =
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/roadmap') ||
+    pathname.startsWith('/playground') ||
+    pathname.startsWith('/debug') ||
+    pathname.startsWith('/assessment') ||
+    pathname.startsWith('/interviews') ||
+    pathname.startsWith('/simulation');
+
+  if (!user && !isPublicRoute && (pathname.startsWith('/dashboard') || pathname.startsWith('/analytics') || pathname.startsWith('/mentor'))) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    return NextResponse.redirect(loginUrl);
   }
 
-  return response
+  if (user && pathname === '/login') {
+    const dashboardUrl = request.nextUrl.clone();
+    dashboardUrl.pathname = '/dashboard';
+    return NextResponse.redirect(dashboardUrl);
+  }
+
+  return response;
 }
 
 export const config = {
